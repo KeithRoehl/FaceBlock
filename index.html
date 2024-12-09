@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FaceBlock - Enhanced Steganography</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto py-10">
+        <h1 class="text-4xl font-bold text-center text-blue-600 mb-8">FaceBlock - Verify Credentials</h1>
+        
+        <!-- Embed Credential Section -->
+        <div class="bg-white shadow rounded-lg p-6 mb-10">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Embed Credential</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1">Upload Image</label>
+                    <input type="file" id="uploadImage" accept="image/*" class="w-full p-2 border border-gray-300 rounded">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1">Enter Credential</label>
+                    <input type="text" id="credentialInput" placeholder="Enter your credential" class="w-full p-2 border border-gray-300 rounded">
+                </div>
+                <button id="embedCredential" class="w-full bg-blue-600 text-white font-semibold py-2 rounded hover:bg-blue-700">
+                    Embed Credential
+                </button>
+                <canvas id="encodedCanvas" style="display:none;"></canvas>
+                <button id="downloadImage" class="w-full bg-green-600 text-white font-semibold py-2 rounded hover:bg-green-700 hidden">
+                    Download Encoded Image
+                </button>
+            </div>
+        </div>
+        
+        <!-- Extract Credential Section -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Extract Credential</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1">Upload Encoded Image</label>
+                    <input type="file" id="encodedImageUpload" accept="image/*" class="w-full p-2 border border-gray-300 rounded">
+                </div>
+                <button id="extractCredential" class="w-full bg-blue-600 text-white font-semibold py-2 rounded hover:bg-blue-700">
+                    Extract Credential
+                </button>
+                <p id="extractedData" class="mt-4 text-gray-700 font-medium"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript for Embedding and Extracting -->
+    <script>
+        /**
+         * Embed text into an image by modifying the least significant bit of the red channel
+         */
+        function embedTextInImage(canvas, text) {
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+            const binaryText = text
+                .split('')
+                .map(char => char.charCodeAt(0).toString(2).padStart(8, '0'))
+                .join('') + '00000000';
+
+            let binaryIndex = 0;
+            for (let i = 0; i < imageData.data.length; i += 4) {
+                if (binaryIndex >= binaryText.length) break;
+                imageData.data[i] = (imageData.data[i] & 0xFE) | parseInt(binaryText[binaryIndex], 2);
+                binaryIndex++;
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        /**
+         * Extract hidden text from an image by reading the least significant bit of the red channel
+         */
+        function extractTextFromImage(canvas) {
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+            let binaryText = '';
+            for (let i = 0; i < imageData.data.length; i += 4) {
+                binaryText += imageData.data[i] & 1;
+            }
+
+            const chars = binaryText.match(/.{8}/g).map(byte => String.fromCharCode(parseInt(byte, 2)));
+            const nullIndex = chars.indexOf('\0');
+            return nullIndex >= 0 ? chars.slice(0, nullIndex).join('') : chars.join('');
+        }
+
+        // Handle Embed Credential Roehl
+        document.getElementById('embedCredential').onclick = () => {
+            const fileInput = document.getElementById('uploadImage');
+            const credential = document.getElementById('credentialInput').value;
+
+            if (!fileInput.files[0]) {
+                alert('Please upload an image!');
+                return;
+            }
+            if (!credential) {
+                alert('Please enter a credential!');
+                return;
+            }
+
+            const img = new Image();
+            img.src = URL.createObjectURL(fileInput.files[0]);
+
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+
+                embedTextInImage(canvas, credential);
+
+                const downloadBtn = document.getElementById('downloadImage');
+                downloadBtn.style.display = 'block';
+                downloadBtn.onclick = () => {
+                    const link = document.createElement('a');
+                    link.download = 'encoded-image.png';
+                    link.href = canvas.toDataURL();
+                    link.click();
+                };
+            };
+        };
+
+        // Handle Extract Credential Keith
+        document.getElementById('extractCredential').onclick = () => {
+            const fileInput = document.getElementById('encodedImageUpload');
+            if (!fileInput.files[0]) {
+                alert('Please upload an encoded image!');
+                return;
+            }
+
+            const img = new Image();
+            img.src = URL.createObjectURL(fileInput.files[0]);
+
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+
+                const extractedText = extractTextFromImage(canvas);
+                document.getElementById('extractedData').innerText = extractedText || 'No hidden data found.';
+            };
+        };
+    </script>
+</body>
+</html>
